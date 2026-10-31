@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductType {
+  SOFTWARE
+  SERVICE
+  ADDON
+}
+
+model Product {
+  id             String      @id @default(cuid())
+  name           String      @db.VarChar(120)
+  type           ProductType @default(SOFTWARE)
+  // All money in this increment is INR, stored in paise.
+  salesPriceMinor Int
+  costPriceMinor  Int
+  notes          String      @default("") @db.VarChar(2000)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([createdAt, id])
+}

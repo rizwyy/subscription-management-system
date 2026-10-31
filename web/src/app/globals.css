@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+body { margin: 0; font-family: Arial, sans-serif; color: #17212f; background: #f5f7fa; }
+main { max-width: 50rem; padding: 2rem; margin: 3rem auto; }
