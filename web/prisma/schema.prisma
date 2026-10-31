@@ -23,6 +23,145 @@ model Product {
   notes          String      @default("") @db.VarChar(2000)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  subscriptionLines SubscriptionLine[]
 
   @@index([createdAt, id])
+}
+
+enum BillingInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  DRAFT
+  QUOTATION
+  CONFIRMED
+  ACTIVE
+  CLOSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  name          String         @db.VarChar(120)
+  email         String         @unique @db.VarChar(254)
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([name, id])
+}
+
+model Plan {
+  id                 String          @id @default(cuid())
+  name               String          @db.VarChar(120)
+  priceMinor         Int
+  billingInterval    BillingInterval
+  minimumQuantity    Int             @default(1)
+  availableFrom      DateTime?       @db.Date
+  availableUntil     DateTime?       @db.Date
+  automaticClosing   Boolean         @default(false)
+  allowEarlyClosing  Boolean         @default(false)
+  allowPausing       Boolean         @default(false)
+  allowRenewal       Boolean         @default(false)
+  subscriptions      Subscription[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  number         String             @unique @db.VarChar(64)
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  planId         String
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status         SubscriptionStatus @default(DRAFT)
+  startsAt       DateTime           @db.Date
+  expiresAt      DateTime?          @db.Date
+  nextBillingAt  DateTime?          @db.Date
+  paymentTermDays Int               @default(0)
+  lines          SubscriptionLine[]
+  invoices       Invoice[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([status, nextBillingAt])
+  @@index([customerId, createdAt])
+}
+
+model SubscriptionLine {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity       Int
+  unitPriceMinor Int
+  taxBasisPoints Int          @default(0)
+
+  @@index([subscriptionId])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  number          String        @unique @db.VarChar(64)
+  subscriptionId  String
+  subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status          InvoiceStatus @default(DRAFT)
+  periodStart     DateTime      @db.Date
+  periodEnd       DateTime      @db.Date
+  issuedAt        DateTime      @db.Date
+  dueAt           DateTime      @db.Date
+  subtotalMinor   Int
+  discountMinor   Int           @default(0)
+  taxMinor        Int           @default(0)
+  totalMinor      Int
+  lines           InvoiceLine[]
+  payments        Payment[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // One invoice per subscription and period start, including cancelled ones.
+  @@unique([subscriptionId, periodStart])
+  @@index([status, dueAt])
+  @@index([customerId, createdAt])
+}
+
+model InvoiceLine {
+  id             String  @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  productName    String  @db.VarChar(120)
+  quantity       Int
+  unitPriceMinor Int
+  taxBasisPoints Int     @default(0)
+  amountMinor    Int
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amountMinor Int
+  method      String   @db.VarChar(40)
+  paidAt      DateTime @db.Date
+  note        String   @default("") @db.VarChar(1000)
+  createdAt   DateTime @default(now())
+
+  @@index([invoiceId, paidAt])
 }
