@@ -56,3 +56,56 @@ export function validateProductQuery(params: URLSearchParams): Validation<{ page
   }
   return { ok: true, value: { page, query } };
 }
+
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+export function isAllowedOrigin(
+  origin: string | null,
+  requestUrlString: string,
+  hostHeader?: string | null
+): boolean {
+  if (!origin) return true;
+
+  let originUrl: URL;
+  let requestUrl: URL;
+  try {
+    originUrl = new URL(origin);
+    requestUrl = new URL(requestUrlString);
+  } catch {
+    return false;
+  }
+
+  // Exact origin match
+  if (originUrl.origin === requestUrl.origin) {
+    return true;
+  }
+
+  // Host header match (e.g. when request.url has internal localhost but Host header has 127.0.0.1:3001)
+  if (hostHeader) {
+    const proto = requestUrl.protocol;
+    try {
+      const headerUrl = new URL(`${proto}//${hostHeader}`);
+      if (originUrl.origin === headerUrl.origin) {
+        return true;
+      }
+    } catch {
+      // Ignore invalid host header
+    }
+  }
+
+  // Local loopback addresses on matching protocol and port are interchangeable
+  const isLocalOrigin = LOCAL_HOSTNAMES.has(originUrl.hostname);
+  const isLocalRequest =
+    LOCAL_HOSTNAMES.has(requestUrl.hostname) ||
+    (hostHeader ? LOCAL_HOSTNAMES.has(hostHeader.split(":")[0]) : false);
+
+  if (isLocalOrigin && isLocalRequest) {
+    const originPort = originUrl.port || (originUrl.protocol === "https:" ? "443" : "80");
+    const requestPort = requestUrl.port || (requestUrl.protocol === "https:" ? "443" : "80");
+    if (originUrl.protocol === requestUrl.protocol && originPort === requestPort) {
+      return true;
+    }
+  }
+
+  return false;
+}

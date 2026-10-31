@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { PRODUCT_PAGE_SIZE, validateProduct, validateProductQuery } from "@/lib/products";
+import {
+  PRODUCT_PAGE_SIZE,
+  isAllowedOrigin,
+  validateProduct,
+  validateProductQuery,
+} from "@/lib/products";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +40,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // An origin check is an extra browser protection, not authentication.
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!isAllowedOrigin(origin, request.url, host)) {
     return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
   }
   let body: unknown;

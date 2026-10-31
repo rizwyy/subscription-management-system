@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateProduct, validateProductQuery } from "../src/lib/products.ts";
+import { isAllowedOrigin, validateProduct, validateProductQuery } from "../src/lib/products.ts";
 
 const valid = { name: " Workspace ", type: "SOFTWARE", salesPriceMinor: 50000, costPriceMinor: 12000 };
 
@@ -58,4 +58,48 @@ test("rejects repeated parameters and oversized searches", () => {
   for (const query of ["page=1&page=2", "q=one&q=two", `q=${"x".repeat(121)}`]) {
     assert.equal(validateProductQuery(new URLSearchParams(query)).ok, false);
   }
+});
+
+test("allows legitimate same-origin requests on localhost and 127.0.0.1", () => {
+  // Matching origin and request URL
+  assert.equal(isAllowedOrigin("http://localhost:3001", "http://localhost:3001/api/products"), true);
+  assert.equal(isAllowedOrigin("http://127.0.0.1:3001", "http://127.0.0.1:3001/api/products"), true);
+
+  // When request.url has internal localhost (Next.js default) but browser is on 127.0.0.1:3001
+  assert.equal(isAllowedOrigin("http://127.0.0.1:3001", "http://localhost:3001/api/products", "127.0.0.1:3001"), true);
+  assert.equal(isAllowedOrigin("http://127.0.0.1:3001", "http://localhost:3001/api/products"), true);
+
+  // When request.url has 127.0.0.1 but browser is on localhost:3001
+  assert.equal(isAllowedOrigin("http://localhost:3001", "http://127.0.0.1:3001/api/products", "localhost:3001"), true);
+  assert.equal(isAllowedOrigin("http://localhost:3001", "http://127.0.0.1:3001/api/products"), true);
+
+  // IPv6 loopback
+  assert.equal(isAllowedOrigin("http://[::1]:3001", "http://localhost:3001/api/products"), true);
+
+  // Default HTTP ports
+  assert.equal(isAllowedOrigin("http://localhost", "http://127.0.0.1/api/products"), true);
+
+  // Non-browser / server-to-server requests without Origin header
+  assert.equal(isAllowedOrigin(null, "http://localhost:3001/api/products"), true);
+  assert.equal(isAllowedOrigin(undefined, "http://localhost:3001/api/products"), true);
+});
+
+test("rejects cross-origin, port-mismatched, and malformed requests", () => {
+  // Untrusted external origins
+  assert.equal(isAllowedOrigin("https://untrusted.example", "http://localhost:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("http://evil.com:3001", "http://localhost:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("http://localhost.evil.com:3001", "http://localhost:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("http://127.0.0.1.attacker.com:3001", "http://127.0.0.1:3001/api/products"), false);
+
+  // Port mismatch on local addresses
+  assert.equal(isAllowedOrigin("http://localhost:3000", "http://localhost:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("http://127.0.0.1:4000", "http://127.0.0.1:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("http://127.0.0.1:3000", "http://localhost:3001/api/products"), false);
+
+  // Protocol mismatch
+  assert.equal(isAllowedOrigin("https://localhost:3001", "http://localhost:3001/api/products"), false);
+
+  // Malformed origins
+  assert.equal(isAllowedOrigin("null", "http://localhost:3001/api/products"), false);
+  assert.equal(isAllowedOrigin("not-a-valid-url", "http://localhost:3001/api/products"), false);
 });
