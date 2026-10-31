@@ -10,14 +10,14 @@ const navigation = [
   { label: "Products", href: "/products", icon: "◇", available: true },
   { label: "Plans", icon: "▤", available: false },
   { label: "Quotes", icon: "▧", available: false },
-  { label: "Subscriptions", icon: "↻", available: false },
+  { label: "Subscriptions", href: "/subscriptions", icon: "↻", available: true },
   { label: "Invoices", icon: "▱", available: false },
   { label: "Payments", icon: "⇄", available: false },
 ];
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const pageTitle = pathname === "/products" ? "Products" : "Overview";
+  const pageTitle = pathname === "/products" ? "Products" : pathname === "/subscriptions" ? "Subscriptions" : "Overview";
 
   return (
     <div className="app-shell">

@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local teammate handoff package; copied application files remain trackable.
+/aman-handoff-batch01/
